@@ -7,28 +7,25 @@ let myRole = null;
 let currentGame = null;
 let myBoard = null;
 let isMyTurn = false;
-let selectedCells = []; // For Battleship setup
 let currentRound = 1;
 let attacksAllowed = 1;
 let currentAttacks = [];
+let placementOrientation = 'H'; // H for Horizontal, V for Vertical
+let boardHistory = [];
 
 // DOM Elements
-const lobbyScreen = document.getElementById('lobby');
-const waitingScreen = document.getElementById('waiting');
-const gameScreen = document.getElementById('game-screen');
-const gameContainer = document.getElementById('game-container');
 const systemMsg = document.getElementById('system-msg');
 const turnIndicator = document.getElementById('turn-indicator');
 const roundInfo = document.getElementById('round-info');
 const readyBtn = document.getElementById('ready-btn');
 const controls = document.getElementById('controls');
+const gameContainer = document.getElementById('game-container');
 
 socket.on('connect', () => {
-    console.log('連線成功！ ID:', socket.id);
     systemMsg.innerText = "已連線至貓咪咖啡廳！請選擇遊戲。";
 });
 
-socket.on('connect_error', (error) => {
+socket.on('connect_error', () => {
     systemMsg.innerText = "連線失敗，正在重新嘗試喵...";
 });
 
@@ -37,12 +34,11 @@ document.getElementById('join-btn').addEventListener('click', () => {
     const room = document.getElementById('room-id').value;
     const gameType = document.getElementById('game-type').value;
     if (!room) return alert('請輸入房間號碼！');
-    
     currentGame = gameType;
     socket.emit('joinRoom', { room, gameType });
 });
 
-socket.on('joined', ({ role, room, gameType }) => {
+socket.on('joined', ({ role, room }) => {
     myRole = role;
     showScreen('waiting');
     const roleName = role === 'Calico' ? '三花貓' : '橘貓';
@@ -57,7 +53,7 @@ socket.on('matchFound', () => {
     showScreen('game-screen');
 });
 
-// Bingo Logic
+// Bingo Logic (Keeping simple for this update)
 socket.on('gameStarted', (data) => {
     if (currentGame === 'bingo') {
         myBoard = data.boards[socket.id];
@@ -92,45 +88,27 @@ socket.on('playerReady', ({ role }) => {
 });
 
 socket.on('battleStarted', (data) => {
+    myBoard = data.boards[socket.id];
     currentRound = data.round;
     roundInfo.innerText = `第 ${currentRound} 回合`;
     systemMsg.innerText = "戰鬥開始！快找出對方的零食！";
     controls.classList.add('hidden');
-    renderBattleBoard();
+    renderBattleLayout();
 });
 
 socket.on('roundResults', (data) => {
-    const myMoves = data.results[socket.id];
-    const oppMoves = Object.entries(data.results).find(([id]) => id !== socket.id)[1];
-
+    boardHistory = data.history[socket.id];
     currentRound = data.round;
     attacksAllowed = data.attacksAllowed;
     currentAttacks = [];
 
     roundInfo.innerText = `第 ${currentRound} 回合`;
+    updateScoreboard(data.scores);
+    renderBattleLayout();
+
     if (attacksAllowed > 1) {
         systemMsg.innerText = `獎勵回合！這回合你可以連續出擊 ${attacksAllowed} 次！`;
     }
-
-    // Process my attack results
-    myMoves.forEach(m => {
-        const cell = document.querySelector(`.cell[data-r="${m.r}"][data-c="${m.c}"]`);
-        if (m.hit) {
-            cell.classList.add('hit');
-            cell.innerText = '💥';
-            if (m.sunkShipId) systemMsg.innerText = "太棒了！你擊沉了對方的一件寶物！";
-        } else {
-            cell.classList.add('miss');
-            cell.innerText = '💨';
-        }
-    });
-
-    alert(`回合結束！你擊中了 ${myMoves.filter(m=>m.hit).length} 個點，對方擊中了 ${oppMoves.filter(m=>m.hit).length} 個點。`);
-    
-    // Clear and redraw for next round if needed
-    setTimeout(() => {
-        renderBattleBoard();
-    }, 1500);
 });
 
 socket.on('gameOver', ({ winners }) => {
@@ -151,10 +129,18 @@ function updateTurn(turnId) {
     turnIndicator.className = isMyTurn ? "turn-active" : "";
 }
 
+function updateScoreboard(scores) {
+    const p1 = Object.keys(scores)[0];
+    const p2 = Object.keys(scores)[1];
+    const scoreText = `得分 - 你: ${scores[socket.id]} | 對手: ${Object.values(scores).find((s, i) => Object.keys(scores)[i] !== socket.id)}`;
+    systemMsg.innerText = scoreText;
+}
+
 // BINGO Rendering
 function renderBingoBoard() {
     gameContainer.innerHTML = '<div class="grid" id="bingo-grid"></div>';
     const grid = document.getElementById('bingo-grid');
+    grid.style.gridTemplateColumns = 'repeat(5, 1fr)';
     myBoard.forEach((row, r) => {
         row.forEach((num, c) => {
             const cell = document.createElement('div');
@@ -177,64 +163,130 @@ function updateBingoMarks(marks) {
 
 // BATTLESHIP Rendering
 function renderSetupBoard() {
-    gameContainer.innerHTML = '<h3>放置你的零食 (點選格子)</h3><div id="ship-selector">目前放置：1x1(未), 1x2(未), 1x3(未)</div><div class="grid" id="setup-grid"></div>';
-    const grid = document.getElementById('setup-grid');
-    let boardState = Array(5).fill().map(() => Array(5).fill(null));
-    let currentShip = 3; // Start with 1x3
+    gameContainer.innerHTML = `
+        <div class="scoreboard">
+            <div>當前方向: <span id="orientation-text">橫向 (H)</span></div>
+            <button id="orientation-btn">切換方向 (H/V)</button>
+        </div>
+        <h3>放置你的零食 (點選格子)</h3>
+        <div id="ship-selector">接下來放置：1x3</div>
+        <div class="grid" id="setup-grid"></div>
+    `;
+    
+    document.getElementById('orientation-btn').onclick = () => {
+        placementOrientation = placementOrientation === 'H' ? 'V' : 'H';
+        document.getElementById('orientation-text').innerText = placementOrientation === 'H' ? '橫向 (H)' : '縱向 (V)';
+    };
 
-    for (let r = 0; r < 5; r++) {
-        for (let c = 0; c < 5; c++) {
+    const grid = document.getElementById('setup-grid');
+    let boardState = Array(6).fill().map(() => Array(6).fill(null));
+    let currentShipSize = 3;
+
+    for (let r = 0; r < 6; r++) {
+        for (let c = 0; c < 6; c++) {
             const cell = document.createElement('div');
             cell.className = 'cell';
             cell.onclick = () => {
-                if (currentShip < 1) return;
-                // Simple logic: click to place currentShip size horizontally if possible
-                if (c + currentShip <= 5) {
-                    let canPlace = true;
-                    for (let i=0; i<currentShip; i++) if(boardState[r][c+i]) canPlace = false;
+                if (currentShipSize < 1) return;
+                
+                let canPlace = true;
+                if (placementOrientation === 'H') {
+                    if (c + currentShipSize > 6) canPlace = false;
+                    else for (let i=0; i<currentShipSize; i++) if(boardState[r][c+i]) canPlace = false;
                     
                     if (canPlace) {
-                        for (let i=0; i<currentShip; i++) {
-                            boardState[r][c+i] = currentShip;
-                            const target = grid.children[r * 5 + (c+i)];
-                            target.classList.add('item');
-                            target.innerText = '🍖';
+                        for (let i=0; i<currentShipSize; i++) {
+                            boardState[r][c+i] = currentShipSize;
+                            grid.children[r * 6 + (c+i)].classList.add('item');
+                            grid.children[r * 6 + (c+i)].innerText = '🍖';
                         }
-                        currentShip--;
-                        updateShipStatus(currentShip);
+                        currentShipSize--;
+                        updateShipStatus(currentShipSize);
                     }
                 } else {
-                    alert("空間不足，換個位置喵！");
+                    if (r + currentShipSize > 6) canPlace = false;
+                    else for (let i=0; i<currentShipSize; i++) if(boardState[r+i][c]) canPlace = false;
+                    
+                    if (canPlace) {
+                        for (let i=0; i<currentShipSize; i++) {
+                            boardState[r+i][c] = currentShipSize;
+                            grid.children[(r+i) * 6 + c].classList.add('item');
+                            grid.children[(r+i) * 6 + c].innerText = '🍖';
+                        }
+                        currentShipSize--;
+                        updateShipStatus(currentShipSize);
+                    }
                 }
+                if (!canPlace) alert("位置重疊或超出範圍喵！");
             };
             grid.appendChild(cell);
         }
     }
     
-    function updateShipStatus(remaining) {
-        const txt = `接下來放置：${remaining > 0 ? '1x' + remaining : '完成！'}`;
-        document.getElementById('ship-selector').innerText = txt;
+    function updateShipStatus(sz) {
+        document.getElementById('ship-selector').innerText = sz > 0 ? `接下來放置：1x${sz}` : "全部放完了喵！";
     }
 
     readyBtn.onclick = () => {
-        if (currentShip > 0) return alert("還沒放完所有零食喵！");
+        if (currentShipSize > 0) return alert("還沒放完喵！");
         socket.emit('gameAction', { type: 'setup', board: boardState });
         readyBtn.disabled = true;
         readyBtn.innerText = "等待對手中...";
     };
 }
 
-function renderBattleBoard() {
-    gameContainer.innerHTML = `<h3>攻擊對方的領土 (剩餘次數: ${attacksAllowed - currentAttacks.length})</h3><div class="grid" id="battle-grid"></div>`;
-    const grid = document.getElementById('battle-grid');
-    for (let r = 0; r < 5; r++) {
-        for (let c = 0; c < 5; c++) {
+function renderBattleLayout() {
+    gameContainer.innerHTML = `
+        <div class="boards-container">
+            <div class="board-wrapper">
+                <h4>我的領土</h4>
+                <div class="grid" id="my-territory-grid"></div>
+            </div>
+            <div class="board-wrapper">
+                <h4>對手領土 (雷達)</h4>
+                <div class="grid" id="radar-grid"></div>
+            </div>
+        </div>
+    `;
+
+    const myGrid = document.getElementById('my-territory-grid');
+    const radarGrid = document.getElementById('radar-grid');
+
+    // Render My Board
+    for (let r = 0; r < 6; r++) {
+        for (let c = 0; c < 6; c++) {
+            const cell = document.createElement('div');
+            cell.className = 'cell';
+            if (myBoard[r][c]) {
+                cell.classList.add('item');
+                cell.innerText = '🍖';
+            }
+            myGrid.appendChild(cell);
+        }
+    }
+
+    // Render Radar Board
+    for (let r = 0; r < 6; r++) {
+        for (let c = 0; c < 6; c++) {
             const cell = document.createElement('div');
             cell.className = 'cell';
             cell.dataset.r = r;
             cell.dataset.c = c;
+
+            // Check history
+            const hist = boardHistory.find(h => h.r === r && h.c === c);
+            if (hist) {
+                cell.classList.add(hist.hit ? 'hit' : 'miss');
+                cell.innerText = hist.hit ? '💥' : '💨';
+            } else if (currentAttacks.some(a => a.r === r && a.c === c)) {
+                cell.classList.add('marked');
+                cell.innerText = '🎯';
+            }
+
             cell.onclick = () => {
+                if (boardHistory.some(h => h.r === r && h.c === c)) return;
                 if (currentAttacks.some(a => a.r === r && a.c === c)) return;
+
                 if (currentAttacks.length < attacksAllowed) {
                     currentAttacks.push({ r, c });
                     cell.classList.add('marked');
@@ -243,13 +295,12 @@ function renderBattleBoard() {
                     if (currentAttacks.length === attacksAllowed) {
                         setTimeout(() => {
                             socket.emit('gameAction', { type: 'pounce', moves: currentAttacks });
-                            systemMsg.innerText = "出擊！等待對手結果喵...";
-                            grid.style.pointerEvents = 'none';
+                            radarGrid.style.pointerEvents = 'none';
                         }, 500);
                     }
                 }
             };
-            grid.appendChild(cell);
+            radarGrid.appendChild(cell);
         }
     }
 }
