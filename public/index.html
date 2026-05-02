@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calico vs Orange - The Ultimate Cat Rivalry</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="app">
+        <header>
+            <h1>🐾 Calico vs Orange 🐾</h1>
+            <p id="system-msg">Welcome to the Cat Cafe!</p>
+        </header>
+
+        <!-- Lobby -->
+        <div id="lobby" class="screen">
+            <div class="card">
+                <h2>Join a Litter Box</h2>
+                <div class="input-group">
+                    <label>Pick Your Battle:</label>
+                    <select id="game-type">
+                        <option value="bingo">Catnip Bingo</option>
+                        <option value="battleship">Litter Box Battleship</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label>Room Number:</label>
+                    <input type="text" id="room-id" placeholder="e.g. 123">
+                </div>
+                <button id="join-btn">Enter Litter Box</button>
+            </div>
+        </div>
+
+        <!-- Waiting Room -->
+        <div id="waiting" class="screen hidden">
+            <div class="card">
+                <h2 id="waiting-title">Waiting for a Rival...</h2>
+                <div class="cat-avatar" id="my-role-icon">🐱</div>
+                <p>You are the <span id="my-role-name">...</span></p>
+                <div class="loader">🐾 🐾 🐾</div>
+            </div>
+        </div>
+
+        <!-- Game Board -->
+        <div id="game-screen" class="screen hidden">
+            <div class="game-info">
+                <div id="turn-indicator">Waiting...</div>
+                <div id="opponent-status">Opponent: Active</div>
+            </div>
+            
+            <div id="game-container">
+                <!-- Game specific content goes here -->
+            </div>
+
+            <div id="controls" class="hidden">
+                <button id="ready-btn">Pounce Ready!</button>
+            </div>
+        </div>
+
+        <!-- Game Over Modal -->
+        <div id="overlay" class="hidden">
+            <div class="modal">
+                <h2 id="winner-text">Someone Won!</h2>
+                <button onclick="location.reload()">Back to Lobby</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="main.js"></script>
+</body>
+</html>
