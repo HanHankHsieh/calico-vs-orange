@@ -1,10 +1,12 @@
 class BingoGame {
     constructor(players, emit) {
-        this.players = players; // [{id, role}, ...]
-        this.emit = emit; // callback to send socket events
-        this.boards = {}; // playerId -> 5x5 array
-        this.marks = {}; // playerId -> 5x5 boolean array
-        this.turnIndex = 0; // Index of player whose turn it is
+        this.players = players;
+        this.emit = emit;
+        this.boards = {};
+        this.marks = {}; // playerId -> 5x5 boolean
+        this.yarnBalls = {}; // playerId -> 5x5 boolean (where this player placed a ball)
+        this.yarnCount = {}; // playerId -> count (max 2)
+        this.turnIndex = 0;
         this.gameOver = false;
     }
 
@@ -12,6 +14,8 @@ class BingoGame {
         this.players.forEach(p => {
             this.boards[p.id] = this.generateBoard();
             this.marks[p.id] = Array(5).fill().map(() => Array(5).fill(false));
+            this.yarnBalls[p.id] = Array(5).fill().map(() => Array(5).fill(false));
+            this.yarnCount[p.id] = 0;
         });
 
         this.emit('gameStarted', {
@@ -21,15 +25,9 @@ class BingoGame {
     }
 
     generateBoard() {
-        const nums = Array.from({ length: 25 }, (_, i) => i + 1);
-        for (let i = nums.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [nums[i], nums[j]] = [nums[j], nums[i]];
-        }
+        const nums = Array.from({ length: 25 }, (_, i) => i + 1).sort(() => Math.random() - 0.5);
         const board = [];
-        for (let i = 0; i < 5; i++) {
-            board.push(nums.slice(i * 5, i * 5 + 5));
-        }
+        for (let i = 0; i < 5; i++) board.push(nums.slice(i * 5, i * 5 + 5));
         return board;
     }
 
@@ -37,17 +35,28 @@ class BingoGame {
         if (this.gameOver) return;
         if (playerId !== this.players[this.turnIndex].id) return;
 
-        const { number } = data;
+        const { number, placeYarn } = data;
         
-        // Mark number for all players
-        this.players.forEach(p => {
-            for (let r = 0; r < 5; r++) {
-                for (let c = 0; c < 5; c++) {
-                    if (this.boards[p.id][r][c] === number) {
-                        this.marks[p.id][r][c] = true;
+        // 1. Handle Yarn Ball Placement
+        if (placeYarn && this.yarnCount[playerId] < 2) {
+            // Find coordinate of the selected number on MY board
+            this.boards[playerId].forEach((row, r) => {
+                row.forEach((num, c) => {
+                    if (num === number && !this.yarnBalls[playerId][r][c]) {
+                        this.yarnBalls[playerId][r][c] = true;
+                        this.yarnCount[playerId]++;
                     }
-                }
-            }
+                });
+            });
+        }
+
+        // 2. Mark number for everyone (standard bingo logic)
+        this.players.forEach(p => {
+            this.boards[p.id].forEach((row, r) => {
+                row.forEach((num, c) => {
+                    if (num === number) this.marks[p.id][r][c] = true;
+                });
+            });
         });
 
         const winners = this.checkWinners();
@@ -55,7 +64,9 @@ class BingoGame {
         this.emit('updateState', {
             lastNumber: number,
             marks: this.marks,
-            lastPlayer: playerId
+            yarnBalls: this.yarnBalls,
+            lastPlayer: playerId,
+            yarnCount: this.yarnCount
         });
 
         if (winners.length > 0) {
@@ -70,24 +81,26 @@ class BingoGame {
     checkWinners() {
         const winners = [];
         this.players.forEach(p => {
-            const marks = this.marks[p.id];
+            const m = this.marks[p.id];
+            const y = this.yarnBalls[p.id];
             let lines = 0;
+
+            // Helper to check if a cell is valid for a line (Marked AND NO Yarn Ball)
+            const isValid = (r, c) => m[r][c] && !y[r][c];
 
             // Rows
             for (let r = 0; r < 5; r++) {
-                if (marks[r].every(c => c)) lines++;
+                if ([0,1,2,3,4].every(c => isValid(r, c))) lines++;
             }
             // Cols
             for (let c = 0; c < 5; c++) {
-                if (marks.every(r => r[c])) lines++;
+                if ([0,1,2,3,4].every(r => isValid(r, c))) lines++;
             }
             // Diagonals
-            if (Array.from({ length: 5 }, (_, i) => marks[i][i]).every(v => v)) lines++;
-            if (Array.from({ length: 5 }, (_, i) => marks[i][4 - i]).every(v => v)) lines++;
+            if ([0,1,2,3,4].every(i => isValid(i, i))) lines++;
+            if ([0,1,2,3,4].every(i => isValid(i, 4-i))) lines++;
 
-            if (lines >= 3) {
-                winners.push(p.role);
-            }
+            if (lines >= 3) winners.push(p.role);
         });
         return winners;
     }
