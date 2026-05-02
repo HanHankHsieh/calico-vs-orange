@@ -222,7 +222,6 @@ function renderSetupBoard() {
                             const target = grid.children[r * 6 + (c+i)];
                             target.classList.add('item-' + currentShipSize);
                             
-                            // 計算背景偏移 (讓一張長圖橫跨多格)
                             if (currentShipSize > 1) {
                                 const offset = (i / (currentShipSize - 1)) * 100;
                                 target.style.backgroundPosition = `${offset}% center`;
@@ -238,12 +237,12 @@ function renderSetupBoard() {
                             boardState[r+i][c] = currentShipSize;
                             const target = grid.children[(r+i) * 6 + c];
                             target.classList.add('item-' + currentShipSize);
-                            target.classList.add('vertical'); // 標記為縱向
+                            target.classList.add('vertical'); 
                             
-                            // 縱向時背景偏移是垂直的
                             if (currentShipSize > 1) {
+                                // 重要：因為 CSS 旋轉了圖片，我們依然使用水平偏移來對齊旋轉後的圖
                                 const offset = (i / (currentShipSize - 1)) * 100;
-                                target.style.backgroundPosition = `center ${offset}%`;
+                                target.style.backgroundPosition = `${offset}% center`;
                             }
                         }
                         currentShipSize--;
@@ -300,11 +299,11 @@ function renderBattleLayout() {
                 if (shipId > 1) {
                     if (isVertical && !isHorizontal) {
                         cell.classList.add('vertical');
-                        // 尋找它是第幾格
                         let topIndex = r;
                         while(topIndex > 0 && myBoard[topIndex-1][c] === shipId) topIndex--;
+                        // 因為 CSS 會旋轉圖片，我們依然使用水平偏移 (i / (size-1) * 100)
                         const offset = ((r - topIndex) / (shipId - 1)) * 100;
-                        cell.style.backgroundPosition = `center ${offset}%`;
+                        cell.style.backgroundPosition = `${offset}% center`;
                     } else {
                         let leftIndex = c;
                         while(leftIndex > 0 && myBoard[r][leftIndex-1] === shipId) leftIndex--;

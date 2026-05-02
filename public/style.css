@@ -133,29 +133,41 @@ button:hover {
     background-size: 85%;
     background-repeat: no-repeat;
     background-position: center;
+    position: relative; /* 為了讓偽元素定位 */
+    overflow: hidden;   /* 避免旋轉出的部分超出格子 */
 }
 
-.cell.item-1 { 
-    background-image: url('assets/item-1.png'); 
-    background-size: 100% 100%; 
+/* 船隻主體使用偽元素，以便單獨旋轉圖片而不影響格子 */
+.cell[class*="item-"]::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background-size: inherit;
+    background-repeat: no-repeat;
+    background-image: inherit;
+    background-position: inherit;
+    z-index: 1;
 }
 
-.cell.item-2 { 
-    background-image: url('assets/item-2.png'); 
-    background-size: 200% 100%; /* 橫跨 2 格 */
+/* 移除原始格子的背景圖，改由偽元素顯示 */
+.cell.item-1, .cell.item-2, .cell.item-3 {
+    background-image: none !important;
 }
 
-.cell.item-3 { 
-    background-image: url('assets/item-3.png'); 
-    background-size: 300% 100%; /* 橫跨 3 格 */
+.cell.item-1::before { background-image: url('assets/item-1.png'); background-size: 100% 100%; }
+.cell.item-2::before { background-image: url('assets/item-2.png'); background-size: 200% 100%; }
+.cell.item-3::before { background-image: url('assets/item-3.png'); background-size: 300% 100%; }
+
+/* 縱向旋轉：將水平的圖片旋轉 90 度 */
+.cell.vertical[class*="item-"]::before {
+    transform: rotate(90deg);
+    /* 旋轉後，原本的寬度會變成高度，所以要調整 size */
+    background-size: 100% 100%; /* 這裡交給繼承或 JS 處理更精確 */
 }
 
-/* 處理縱向旋轉時的背景圖適應 */
-.cell.vertical {
-    background-size: 100% auto;
-}
-.cell.vertical.item-2 { background-size: 100% 200%; }
-.cell.vertical.item-3 { background-size: 100% 300%; }
+.cell.vertical.item-2::before { background-size: 200% 100%; }
+.cell.vertical.item-3::before { background-size: 300% 100%; }
+
 
 
 .cell.hit { background-image: url('assets/hit-paw.png'); background-color: #fff0f0; border-color: #ffcccc; }
