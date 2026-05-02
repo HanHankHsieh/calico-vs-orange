@@ -4,9 +4,9 @@ class BattleshipGame {
         this.emit = emit;
         this.gridSize = 6;
         this.boards = {}; // playerId -> 6x6 grid
-        this.ships = {}; // playerId -> { shipId: { hits: 0, size: X, sunk: false } }
+        this.ships = {}; // playerId -> { shipId: { size: X, sunk: false } }
         this.ready = {};
-        this.history = {}; // playerId -> [{r, c, hit}] - Moves made BY this player
+        this.history = {}; // playerId -> [{r, c, hit, revealedCoords: []}]
         this.roundActions = {}; // playerId -> moves
         this.roundCount = 1;
         this.gameOver = false;
@@ -27,16 +27,16 @@ class BattleshipGame {
         if (data.type === 'setup') {
             this.boards[playerId] = data.board;
             this.ships[playerId] = {
-                '1': { size: 1, hits: 0, sunk: false },
-                '2': { size: 2, hits: 0, sunk: false },
-                '3': { size: 3, hits: 0, sunk: false }
+                '1': { size: 1, sunk: false },
+                '2': { size: 2, sunk: false },
+                '3': { size: 3, sunk: false }
             };
             this.ready[playerId] = true;
             
             if (this.players.every(p => this.ready[p.id])) {
                 this.emit('battleStarted', { 
                     round: this.roundCount,
-                    boards: this.boards // Players see their own boards
+                    boards: this.boards
                 });
             } else {
                 const role = this.players.find(p => p.id === playerId).role === 'Calico' ? '三花貓' : '橘貓';
@@ -66,7 +66,6 @@ class BattleshipGame {
         const bonusTurns = [5, 10, 15, 20];
         const attacksAllowed = bonusTurns.includes(this.roundCount) ? 2 : 1;
 
-        // Calculate scores (sunk ships count)
         const scores = {};
         this.players.forEach(p => {
             const oppId = this.players.find(other => other.id !== p.id).id;
@@ -103,17 +102,25 @@ class BattleshipGame {
         moves.forEach(move => {
             const shipId = defenderBoard[move.r][move.c];
             let hit = false;
-            let sunkShipId = null;
+            let revealedCoords = [];
 
-            if (shipId) {
+            if (shipId && !defenderShips[shipId].sunk) {
                 hit = true;
-                defenderShips[shipId].hits++;
-                if (defenderShips[shipId].hits >= defenderShips[shipId].size) {
-                    defenderShips[shipId].sunk = true;
-                    sunkShipId = shipId;
+                defenderShips[shipId].sunk = true;
+                // Find ALL coordinates of this ship to reveal them
+                for (let r = 0; r < 6; r++) {
+                    for (let c = 0; c < 6; c++) {
+                        if (defenderBoard[r][c] == shipId) {
+                            revealedCoords.push({ r, c });
+                        }
+                    }
                 }
+            } else if (shipId && defenderShips[shipId].sunk) {
+                // Already sunk, treat as hit but no new reveal
+                hit = true;
             }
-            moveResults.push({ r: move.r, c: move.c, hit, sunkShipId });
+
+            moveResults.push({ r: move.r, c: move.c, hit, revealedCoords });
         });
 
         return moveResults;

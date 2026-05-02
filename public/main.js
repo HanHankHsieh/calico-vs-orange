@@ -268,7 +268,10 @@ function renderBattleLayout() {
                 cell.classList.add('item');
                 cell.innerText = '🍖';
             }
-            const oppHit = opponentAttacksHistory.find(h => h.r === r && h.c === c);
+            const oppHit = opponentAttacksHistory.find(h => 
+                (h.r === r && h.c === c) || 
+                (h.revealedCoords && h.revealedCoords.some(rc => rc.r === r && rc.c === c))
+            );
             if (oppHit) {
                 cell.classList.add(oppHit.hit ? 'hit' : 'miss');
                 cell.innerText = oppHit.hit ? '💥' : '💨';
@@ -284,7 +287,10 @@ function renderBattleLayout() {
             cell.className = 'cell';
             cell.dataset.r = r;
             cell.dataset.c = c;
-            const myHit = myAttacksHistory.find(h => h.r === r && h.c === c);
+            const myHit = myAttacksHistory.find(h => 
+                (h.r === r && h.c === c) || 
+                (h.revealedCoords && h.revealedCoords.some(rc => rc.r === r && rc.c === c))
+            );
             if (myHit) {
                 cell.classList.add(myHit.hit ? 'hit' : 'miss');
                 cell.innerText = myHit.hit ? '💥' : '💨';
@@ -293,7 +299,11 @@ function renderBattleLayout() {
                 cell.innerText = '🎯';
             }
             cell.onclick = () => {
-                if (myAttacksHistory.some(h => h.r === r && h.c === c)) return;
+                const isAlreadyHit = myAttacksHistory.some(h => 
+                    (h.r === r && h.c === c) || 
+                    (h.revealedCoords && h.revealedCoords.some(rc => rc.r === r && rc.c === c))
+                );
+                if (isAlreadyHit) return;
                 if (currentAttacks.some(a => a.r === r && a.c === c)) return;
                 if (currentAttacks.length < attacksAllowed) {
                     currentAttacks.push({ r, c });
