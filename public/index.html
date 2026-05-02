@@ -1,73 +1,73 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Calico vs Orange - The Ultimate Cat Rivalry</title>
+    <title>三花貓 vs 橘貓 - 貓咪大戰爭</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div id="app">
         <header>
-            <h1>🐾 Calico vs Orange 🐾</h1>
-            <p id="system-msg">Welcome to the Cat Cafe!</p>
+            <h1>🐾 三花貓 vs 橘貓 🐾</h1>
+            <p id="system-msg">歡迎來到貓咪咖啡廳！</p>
         </header>
 
-        <!-- Lobby -->
+        <!-- 大廳 -->
         <div id="lobby" class="screen">
             <div class="card">
-                <h2>Join a Litter Box</h2>
+                <h2>加入貓咪沙盆</h2>
                 <div class="input-group">
-                    <label>Pick Your Battle:</label>
+                    <label>選擇遊戲：</label>
                     <select id="game-type">
-                        <option value="bingo">Catnip Bingo</option>
-                        <option value="battleship">Litter Box Battleship</option>
+                        <option value="bingo">貓草賓果</option>
+                        <option value="battleship">貓砂盆轟炸 (海戰)</option>
                     </select>
                 </div>
                 <div class="input-group">
-                    <label>Room Number:</label>
-                    <input type="text" id="room-id" placeholder="e.g. 123">
+                    <label>房間號碼：</label>
+                    <input type="text" id="room-id" placeholder="例如: 123">
                 </div>
-                <button id="join-btn">Enter Litter Box</button>
+                <button id="join-btn">進入沙盆</button>
             </div>
         </div>
 
-        <!-- Waiting Room -->
+        <!-- 等待室 -->
         <div id="waiting" class="screen hidden">
             <div class="card">
-                <h2 id="waiting-title">Waiting for a Rival...</h2>
+                <h2 id="waiting-title">正在等待對手喵...</h2>
                 <div class="cat-avatar" id="my-role-icon">🐱</div>
-                <p>You are the <span id="my-role-name">...</span></p>
+                <p>你是：<span id="my-role-name">...</span></p>
                 <div class="loader">🐾 🐾 🐾</div>
             </div>
         </div>
 
-        <!-- Game Board -->
+        <!-- 遊戲畫面 -->
         <div id="game-screen" class="screen hidden">
             <div class="game-info">
-                <div id="turn-indicator">Waiting...</div>
-                <div id="opponent-status">Opponent: Active</div>
+                <div id="turn-indicator">等待中...</div>
+                <div id="round-info">第 1 回合</div>
             </div>
             
             <div id="game-container">
-                <!-- Game specific content goes here -->
+                <!-- 遊戲內容動態生成 -->
             </div>
 
             <div id="controls" class="hidden">
-                <button id="ready-btn">Pounce Ready!</button>
+                <div id="setup-hint" class="hint">請放置 1x1, 1x2, 1x3 的零食</div>
+                <button id="ready-btn">準備好開戰了喵！</button>
             </div>
         </div>
 
-        <!-- Game Over Modal -->
+        <!-- 結束彈窗 -->
         <div id="overlay" class="hidden">
             <div class="modal">
-                <h2 id="winner-text">Someone Won!</h2>
-                <button onclick="location.reload()">Back to Lobby</button>
+                <h2 id="winner-text">有人贏了喵！</h2>
+                <button onclick="location.reload()">回到大廳</button>
             </div>
         </div>
     </div>
 
-    <!-- Using CDN for better compatibility on cloud platforms like Render -->
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <script src="main.js"></script>
 </body>
