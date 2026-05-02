@@ -11,9 +11,9 @@ let currentRound = 1;
 let attacksAllowed = 1;
 let currentAttacks = [];
 let placementOrientation = 'H';
-let myAttacksHistory = [];      // 我攻擊別人的紀錄
-let opponentAttacksHistory = []; // 別人攻擊我的紀錄
-let bingoHistory = [];           // 賓果號碼紀錄
+let myAttacksHistory = [];      
+let opponentAttacksHistory = []; 
+let bingoHistory = [];           
 
 // DOM Elements
 const systemMsg = document.getElementById('system-msg');
@@ -67,7 +67,8 @@ socket.on('gameStarted', (data) => {
 socket.on('updateState', (data) => {
     if (currentGame === 'bingo') {
         const isMe = data.lastPlayer === socket.id;
-        updateBingoMarks(data.marks[socket.id], data.yarnBalls[socket.id]);
+        updateBingoMarks(data.marks[socket.id], data.yarnBalls); 
+        updateBingoStats(data.playerStates);
         
         const myYarnCount = data.yarnCount[socket.id];
         updateYarnUI(myYarnCount);
@@ -142,11 +143,18 @@ function updateScoreboard(scores) {
 // BINGO Rendering
 function renderBingoBoard() {
     gameContainer.innerHTML = `
+        <div id="bingo-score-board">
+            <div>我方連線: <span id="my-lines">0</span></div>
+            <div>敵方連線: <span id="opp-lines">0</span></div>
+        </div>
         <div id="bingo-mischief">
             <label for="yarn-checkbox">🧶 惡作劇毛線球 (剩餘: <span id="yarn-left">2</span>)</label>
             <input type="checkbox" id="yarn-checkbox">
         </div>
-        <div class="grid" id="bingo-grid" style="grid-template-columns: repeat(5, 1fr);"></div>
+        <div id="bingo-grid-container">
+            <div class="grid" id="bingo-grid" style="grid-template-columns: repeat(5, 1fr);"></div>
+            <div id="bingo-lines-layer"></div>
+        </div>
         <div id="bingo-history-container">
             <h4>🐾 號碼紀錄</h4>
             <div id="bingo-history" class="history-list"></div>
@@ -171,8 +179,9 @@ function renderBingoBoard() {
     });
 }
 
-function updateBingoMarks(marks, yarnBalls) {
+function updateBingoMarks(marks, allYarnBalls) {
     const cells = document.querySelectorAll('#bingo-grid .cell');
+    cells.forEach(c => c.classList.remove('marked-bingo', 'yarn-blocked'));
     marks.forEach((row, r) => {
         row.forEach((marked, c) => {
             const index = r * 5 + c;
@@ -180,10 +189,27 @@ function updateBingoMarks(marks, yarnBalls) {
                 cells[index].classList.add('marked-bingo');
                 cells[index].innerText = '';
             }
-            if (yarnBalls && yarnBalls[r][c]) {
-                cells[index].classList.add('yarn-blocked');
-            }
+            Object.values(allYarnBalls).forEach(playerBalls => {
+                if (playerBalls[r][c]) cells[index].classList.add('yarn-blocked');
+            });
         });
+    });
+}
+
+function updateBingoStats(playerStates) {
+    const myState = playerStates[socket.id];
+    const oppId = Object.keys(playerStates).find(id => id !== socket.id);
+    const oppState = playerStates[oppId];
+    document.getElementById('my-lines').innerText = myState.count;
+    document.getElementById('opp-lines').innerText = oppState.count;
+    const layer = document.getElementById('bingo-lines-layer');
+    layer.innerHTML = '';
+    myState.lines.forEach(line => {
+        const lineEl = document.createElement('div');
+        lineEl.className = `bingo-line line-${line.type}${line.type === 'diag' ? line.index : ''}`;
+        if (line.type === 'row') lineEl.style.top = `${line.index * 20 + 10}%`;
+        else if (line.type === 'col') lineEl.style.left = `${line.index * 20 + 10}%`;
+        layer.appendChild(lineEl);
     });
 }
 
@@ -219,16 +245,13 @@ function renderSetupBoard() {
         <div id="ship-selector">接下來放置：1x3 (貓抓板)</div>
         <div class="grid" id="setup-grid"></div>
     `;
-    
     document.getElementById('orientation-btn').onclick = () => {
         placementOrientation = placementOrientation === 'H' ? 'V' : 'H';
         document.getElementById('orientation-text').innerText = placementOrientation === 'H' ? '橫向 (H)' : '縱向 (V)';
     };
-
     const grid = document.getElementById('setup-grid');
     let boardState = Array(6).fill().map(() => Array(6).fill(null));
     let currentShipSize = 3;
-
     for (let r = 0; r < 6; r++) {
         for (let c = 0; c < 6; c++) {
             const cell = document.createElement('div');
@@ -275,7 +298,6 @@ function renderSetupBoard() {
             grid.appendChild(cell);
         }
     }
-
     readyBtn.onclick = () => {
         if (currentShipSize > 0) return alert("還沒放完喵！");
         socket.emit('gameAction', { type: 'setup', board: boardState });
@@ -297,10 +319,8 @@ function renderBattleLayout() {
             </div>
         </div>
     `;
-
     const myGrid = document.getElementById('my-territory-grid');
     const radarGrid = document.getElementById('radar-grid');
-
     for (let r = 0; r < 6; r++) {
         for (let c = 0; c < 6; c++) {
             const cell = document.createElement('div');
@@ -326,8 +346,7 @@ function renderBattleLayout() {
                 }
             }
             const oppHit = opponentAttacksHistory.find(h => 
-                (h.r === r && h.c === c) || 
-                (h.revealedCoords && h.revealedCoords.some(rc => rc.r === r && rc.c === c))
+                (h.r === r && h.c === c) || (h.revealedCoords && h.revealedCoords.some(rc => rc.r === r && rc.c === c))
             );
             if (oppHit) {
                 cell.classList.add(oppHit.hit ? 'hit' : 'miss');
@@ -336,7 +355,6 @@ function renderBattleLayout() {
             myGrid.appendChild(cell);
         }
     }
-
     for (let r = 0; r < 6; r++) {
         for (let c = 0; c < 6; c++) {
             const cell = document.createElement('div');
@@ -344,18 +362,13 @@ function renderBattleLayout() {
             cell.dataset.r = r;
             cell.dataset.c = c;
             const myHit = myAttacksHistory.find(h => 
-                (h.r === r && h.c === c) || 
-                (h.revealedCoords && h.revealedCoords.some(rc => rc.r === r && rc.c === c))
+                (h.r === r && h.c === c) || (h.revealedCoords && h.revealedCoords.some(rc => rc.r === r && rc.c === c))
             );
-            if (myHit) {
-                cell.classList.add(myHit.hit ? 'hit' : 'miss');
-            } else if (currentAttacks.some(a => a.r === r && a.c === c)) {
-                cell.classList.add('marked');
-            }
+            if (myHit) cell.classList.add(myHit.hit ? 'hit' : 'miss');
+            else if (currentAttacks.some(a => a.r === r && a.c === c)) cell.classList.add('marked');
             cell.onclick = () => {
                 const isAlreadyHit = myAttacksHistory.some(h => 
-                    (h.r === r && h.c === c) || 
-                    (h.revealedCoords && h.revealedCoords.some(rc => rc.r === r && rc.c === c))
+                    (h.r === r && h.c === c) || (h.revealedCoords && h.revealedCoords.some(rc => rc.r === r && rc.c === c))
                 );
                 if (isAlreadyHit) return;
                 if (currentAttacks.some(a => a.r === r && a.c === c)) return;

@@ -3,9 +3,9 @@ class BingoGame {
         this.players = players;
         this.emit = emit;
         this.boards = {};
-        this.marks = {}; // playerId -> 5x5 boolean
-        this.yarnBalls = {}; // playerId -> 5x5 boolean (where this player placed a ball)
-        this.yarnCount = {}; // playerId -> count (max 2)
+        this.marks = {}; 
+        this.yarnBalls = {}; 
+        this.yarnCount = {}; 
         this.turnIndex = 0;
         this.gameOver = false;
     }
@@ -37,9 +37,7 @@ class BingoGame {
 
         const { number, placeYarn } = data;
         
-        // 1. Handle Yarn Ball Placement
         if (placeYarn && this.yarnCount[playerId] < 2) {
-            // Find coordinate of the selected number on MY board
             this.boards[playerId].forEach((row, r) => {
                 row.forEach((num, c) => {
                     if (num === number && !this.yarnBalls[playerId][r][c]) {
@@ -50,7 +48,6 @@ class BingoGame {
             });
         }
 
-        // 2. Mark number for everyone (standard bingo logic)
         this.players.forEach(p => {
             this.boards[p.id].forEach((row, r) => {
                 row.forEach((num, c) => {
@@ -59,15 +56,21 @@ class BingoGame {
             });
         });
 
-        const winners = this.checkWinners();
-        
+        const playerStates = {};
+        this.players.forEach(p => {
+            playerStates[p.id] = this.checkLines(p.id);
+        });
+
         this.emit('updateState', {
             lastNumber: number,
             marks: this.marks,
             yarnBalls: this.yarnBalls,
             lastPlayer: playerId,
-            yarnCount: this.yarnCount
+            yarnCount: this.yarnCount,
+            playerStates: playerStates // Contains line counts and line coordinates
         });
+
+        const winners = this.players.filter(p => playerStates[p.id].count >= 3).map(p => p.role);
 
         if (winners.length > 0) {
             this.gameOver = true;
@@ -78,31 +81,33 @@ class BingoGame {
         }
     }
 
-    checkWinners() {
-        const winners = [];
-        this.players.forEach(p => {
-            const m = this.marks[p.id];
-            const y = this.yarnBalls[p.id];
-            let lines = 0;
+    checkLines(playerId) {
+        const m = this.marks[playerId];
+        const y = this.yarnBalls[playerId];
+        const lines = [];
+        const isValid = (r, c) => m[r][c] && !y[r][c];
 
-            // Helper to check if a cell is valid for a line (Marked AND NO Yarn Ball)
-            const isValid = (r, c) => m[r][c] && !y[r][c];
-
-            // Rows
-            for (let r = 0; r < 5; r++) {
-                if ([0,1,2,3,4].every(c => isValid(r, c))) lines++;
+        // Rows
+        for (let r = 0; r < 5; r++) {
+            if ([0,1,2,3,4].every(c => isValid(r, c))) {
+                lines.push({ type: 'row', index: r });
             }
-            // Cols
-            for (let c = 0; c < 5; c++) {
-                if ([0,1,2,3,4].every(r => isValid(r, c))) lines++;
+        }
+        // Cols
+        for (let c = 0; c < 5; c++) {
+            if ([0,1,2,3,4].every(r => isValid(r, c))) {
+                lines.push({ type: 'col', index: c });
             }
-            // Diagonals
-            if ([0,1,2,3,4].every(i => isValid(i, i))) lines++;
-            if ([0,1,2,3,4].every(i => isValid(i, 4-i))) lines++;
+        }
+        // Diagonals
+        if ([0,1,2,3,4].every(i => isValid(i, i))) {
+            lines.push({ type: 'diag', index: 0 });
+        }
+        if ([0,1,2,3,4].every(i => isValid(i, 4-i))) {
+            lines.push({ type: 'diag', index: 1 });
+        }
 
-            if (lines >= 3) winners.push(p.role);
-        });
-        return winners;
+        return { count: lines.length, lines: lines };
     }
 }
 
