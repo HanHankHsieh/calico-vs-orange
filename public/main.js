@@ -10,8 +10,9 @@ let isMyTurn = false;
 let currentRound = 1;
 let attacksAllowed = 1;
 let currentAttacks = [];
-let placementOrientation = 'H'; // H for Horizontal, V for Vertical
-let boardHistory = [];
+let placementOrientation = 'H';
+let myAttacksHistory = [];      // 我攻擊別人的紀錄
+let opponentAttacksHistory = []; // 別人攻擊我的紀錄
 
 // DOM Elements
 const systemMsg = document.getElementById('system-msg');
@@ -23,10 +24,6 @@ const gameContainer = document.getElementById('game-container');
 
 socket.on('connect', () => {
     systemMsg.innerText = "已連線至貓咪咖啡廳！請選擇遊戲。";
-});
-
-socket.on('connect_error', () => {
-    systemMsg.innerText = "連線失敗，正在重新嘗試喵...";
 });
 
 // Join Logic
@@ -53,27 +50,6 @@ socket.on('matchFound', () => {
     showScreen('game-screen');
 });
 
-// Bingo Logic (Keeping simple for this update)
-socket.on('gameStarted', (data) => {
-    if (currentGame === 'bingo') {
-        myBoard = data.boards[socket.id];
-        renderBingoBoard();
-        updateTurn(data.turn);
-    }
-});
-
-socket.on('updateState', (data) => {
-    if (currentGame === 'bingo') {
-        updateBingoMarks(data.marks[socket.id]);
-        const pName = data.lastPlayer === socket.id ? '你' : '對方';
-        systemMsg.innerText = `${pName} 抓到了號碼 ${data.lastNumber}！`;
-    }
-});
-
-socket.on('nextTurn', (data) => {
-    updateTurn(data.turn);
-});
-
 // Battleship Logic
 socket.on('waitingForSetup', (data) => {
     if (currentGame === 'battleship') {
@@ -81,10 +57,6 @@ socket.on('waitingForSetup', (data) => {
         systemMsg.innerText = data.text;
         controls.classList.remove('hidden');
     }
-});
-
-socket.on('playerReady', ({ role }) => {
-    systemMsg.innerText = `${role} 已經藏好零食了...`;
 });
 
 socket.on('battleStarted', (data) => {
@@ -97,7 +69,13 @@ socket.on('battleStarted', (data) => {
 });
 
 socket.on('roundResults', (data) => {
-    boardHistory = data.history[socket.id];
+    // 更新歷史紀錄
+    myAttacksHistory = data.history[socket.id] || [];
+    
+    // 找出對手的 ID 並取得他的攻擊紀錄 (也就是對我方的轟炸)
+    const opponentId = Object.keys(data.history).find(id => id !== socket.id);
+    opponentAttacksHistory = data.history[opponentId] || [];
+
     currentRound = data.round;
     attacksAllowed = data.attacksAllowed;
     currentAttacks = [];
@@ -123,42 +101,9 @@ function showScreen(id) {
     document.getElementById(id).classList.remove('hidden');
 }
 
-function updateTurn(turnId) {
-    isMyTurn = turnId === socket.id;
-    turnIndicator.innerText = isMyTurn ? "輪到你了 - 快出擊！" : "對方正在思考喵...";
-    turnIndicator.className = isMyTurn ? "turn-active" : "";
-}
-
 function updateScoreboard(scores) {
-    const p1 = Object.keys(scores)[0];
-    const p2 = Object.keys(scores)[1];
-    const scoreText = `得分 - 你: ${scores[socket.id]} | 對手: ${Object.values(scores).find((s, i) => Object.keys(scores)[i] !== socket.id)}`;
-    systemMsg.innerText = scoreText;
-}
-
-// BINGO Rendering
-function renderBingoBoard() {
-    gameContainer.innerHTML = '<div class="grid" id="bingo-grid"></div>';
-    const grid = document.getElementById('bingo-grid');
-    grid.style.gridTemplateColumns = 'repeat(5, 1fr)';
-    myBoard.forEach((row, r) => {
-        row.forEach((num, c) => {
-            const cell = document.createElement('div');
-            cell.className = 'cell';
-            cell.innerText = num;
-            cell.onclick = () => { if (isMyTurn) socket.emit('gameAction', { number: num }); };
-            grid.appendChild(cell);
-        });
-    });
-}
-
-function updateBingoMarks(marks) {
-    const cells = document.querySelectorAll('.cell');
-    marks.forEach((row, r) => {
-        row.forEach((marked, c) => {
-            if (marked) cells[r * 5 + c].classList.add('marked');
-        });
-    });
+    const oppScore = Object.entries(scores).find(([id]) => id !== socket.id)[1];
+    systemMsg.innerText = `得分 - 你擊沉: ${scores[socket.id]} | 對手擊沉: ${oppScore}`;
 }
 
 // BATTLESHIP Rendering
@@ -188,12 +133,10 @@ function renderSetupBoard() {
             cell.className = 'cell';
             cell.onclick = () => {
                 if (currentShipSize < 1) return;
-                
                 let canPlace = true;
                 if (placementOrientation === 'H') {
                     if (c + currentShipSize > 6) canPlace = false;
                     else for (let i=0; i<currentShipSize; i++) if(boardState[r][c+i]) canPlace = false;
-                    
                     if (canPlace) {
                         for (let i=0; i<currentShipSize; i++) {
                             boardState[r][c+i] = currentShipSize;
@@ -201,12 +144,10 @@ function renderSetupBoard() {
                             grid.children[r * 6 + (c+i)].innerText = '🍖';
                         }
                         currentShipSize--;
-                        updateShipStatus(currentShipSize);
                     }
                 } else {
                     if (r + currentShipSize > 6) canPlace = false;
                     else for (let i=0; i<currentShipSize; i++) if(boardState[r+i][c]) canPlace = false;
-                    
                     if (canPlace) {
                         for (let i=0; i<currentShipSize; i++) {
                             boardState[r+i][c] = currentShipSize;
@@ -214,17 +155,13 @@ function renderSetupBoard() {
                             grid.children[(r+i) * 6 + c].innerText = '🍖';
                         }
                         currentShipSize--;
-                        updateShipStatus(currentShipSize);
                     }
                 }
+                document.getElementById('ship-selector').innerText = currentShipSize > 0 ? `接下來放置：1x${currentShipSize}` : "全部放完了喵！";
                 if (!canPlace) alert("位置重疊或超出範圍喵！");
             };
             grid.appendChild(cell);
         }
-    }
-    
-    function updateShipStatus(sz) {
-        document.getElementById('ship-selector').innerText = sz > 0 ? `接下來放置：1x${sz}` : "全部放完了喵！";
     }
 
     readyBtn.onclick = () => {
@@ -239,7 +176,7 @@ function renderBattleLayout() {
     gameContainer.innerHTML = `
         <div class="boards-container">
             <div class="board-wrapper">
-                <h4>我的領土</h4>
+                <h4>我的領土 (防禦中)</h4>
                 <div class="grid" id="my-territory-grid"></div>
             </div>
             <div class="board-wrapper">
@@ -252,20 +189,32 @@ function renderBattleLayout() {
     const myGrid = document.getElementById('my-territory-grid');
     const radarGrid = document.getElementById('radar-grid');
 
-    // Render My Board
+    // 渲染「我的領土」：顯示自己的船 + 對手的攻擊紀錄
     for (let r = 0; r < 6; r++) {
         for (let c = 0; c < 6; c++) {
             const cell = document.createElement('div');
             cell.className = 'cell';
+            
+            // 顯示我的船
             if (myBoard[r][c]) {
                 cell.classList.add('item');
                 cell.innerText = '🍖';
             }
+
+            // 標記對手炸我的位置
+            const oppHit = opponentAttacksHistory.find(h => h.r === r && h.c === c);
+            if (oppHit) {
+                cell.classList.add(oppHit.hit ? 'hit' : 'miss');
+                cell.innerText = oppHit.hit ? '💥' : '💨';
+                // 如果是被炸中的船，顏色要更深
+                if (oppHit.hit) cell.style.boxShadow = "inset 0 0 10px red";
+            }
+            
             myGrid.appendChild(cell);
         }
     }
 
-    // Render Radar Board
+    // 渲染「對手領土」：顯示我的攻擊紀錄 + 選擇新目標
     for (let r = 0; r < 6; r++) {
         for (let c = 0; c < 6; c++) {
             const cell = document.createElement('div');
@@ -273,18 +222,17 @@ function renderBattleLayout() {
             cell.dataset.r = r;
             cell.dataset.c = c;
 
-            // Check history
-            const hist = boardHistory.find(h => h.r === r && h.c === c);
-            if (hist) {
-                cell.classList.add(hist.hit ? 'hit' : 'miss');
-                cell.innerText = hist.hit ? '💥' : '💨';
+            const myHit = myAttacksHistory.find(h => h.r === r && h.c === c);
+            if (myHit) {
+                cell.classList.add(myHit.hit ? 'hit' : 'miss');
+                cell.innerText = myHit.hit ? '💥' : '💨';
             } else if (currentAttacks.some(a => a.r === r && a.c === c)) {
                 cell.classList.add('marked');
                 cell.innerText = '🎯';
             }
 
             cell.onclick = () => {
-                if (boardHistory.some(h => h.r === r && h.c === c)) return;
+                if (myAttacksHistory.some(h => h.r === r && h.c === c)) return;
                 if (currentAttacks.some(a => a.r === r && a.c === c)) return;
 
                 if (currentAttacks.length < attacksAllowed) {
