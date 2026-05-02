@@ -136,9 +136,26 @@ button:hover {
     font-weight: bold;
 }
 
-#orientation-btn {
-    margin-bottom: 10px;
+.history-list {
+    margin-top: 15px;
+    padding: 10px;
+    background: #fff;
+    border-radius: 10px;
+    border: 2px dashed var(--accent-color);
+    max-height: 100px;
+    overflow-y: auto;
+    text-align: left;
 }
+.history-item {
+    display: inline-block;
+    background: #eee;
+    padding: 2px 8px;
+    margin: 2px;
+    border-radius: 4px;
+    font-size: 0.9rem;
+}
+.history-item.mine { border-left: 3px solid var(--accent-color); }
+.history-item.theirs { border-left: 3px solid #777; }
 
 
 .cell:hover {
