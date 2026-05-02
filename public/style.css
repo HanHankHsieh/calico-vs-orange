@@ -170,9 +170,46 @@ button:hover {
 
 
 
-.cell.hit { background-image: url('assets/hit-paw.png'); background-color: #fff0f0; border-color: #ffcccc; }
-.cell.miss { background-image: url('assets/miss-dust.png'); background-color: #f8f8f8; }
-.cell.marked { background-image: url('assets/target-aim.png'); }
+.cell.hit::after { 
+    content: "";
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background-image: url('assets/hit-paw.png');
+    background-size: 90%;
+    background-repeat: no-repeat;
+    background-position: center;
+    z-index: 2;
+}
+
+.cell.miss::after { 
+    content: "";
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background-image: url('assets/miss-dust.png');
+    background-size: 80%;
+    background-repeat: no-repeat;
+    background-position: center;
+    z-index: 2;
+}
+
+.cell.marked::after { 
+    content: "";
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background-image: url('assets/target-aim.png');
+    background-size: 80%;
+    background-repeat: no-repeat;
+    background-position: center;
+    z-index: 2;
+}
+
+.cell.hit { background-color: #fff0f0; border-color: #ffcccc; }
+.cell.miss { background-color: #f8f8f8; }
+
+/* 標記已經點過的格子，不允許再點 */
+.cell.hit, .cell.miss {
+    cursor: not-allowed;
+}
 
 .cell.marked-bingo {
     background-image: url('assets/hit-paw.png');
