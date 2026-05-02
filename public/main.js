@@ -42,7 +42,12 @@ socket.on('joined', ({ role, room }) => {
     const roleName = role === 'Calico' ? '三花貓' : '橘貓';
     document.getElementById('my-role-name').innerText = roleName;
     document.getElementById('my-role-name').className = 'role-' + role;
-    document.getElementById('my-role-icon').innerText = role === 'Calico' ? '👵' : '👶';
+    
+    // 套用頭像圖片
+    const icon = document.getElementById('my-role-icon');
+    icon.innerText = ''; // 清除 Emoji
+    icon.className = 'cat-avatar avatar-' + role;
+    
     systemMsg.innerText = `正在房間 ${room} 等待對手喵...`;
 });
 
@@ -149,7 +154,7 @@ function renderBingoBoard() {
             cell.className = 'cell';
             cell.innerText = num;
             cell.onclick = () => { 
-                if (isMyTurn && !cell.classList.contains('marked')) {
+                if (isMyTurn && !cell.classList.contains('marked-bingo')) {
                     socket.emit('gameAction', { number: num }); 
                 }
             };
@@ -162,7 +167,10 @@ function updateBingoMarks(marks) {
     const cells = document.querySelectorAll('#bingo-grid .cell');
     marks.forEach((row, r) => {
         row.forEach((marked, c) => {
-            if (marked) cells[r * 5 + c].classList.add('marked');
+            if (marked) {
+                cells[r * 5 + c].classList.add('marked-bingo');
+                cells[r * 5 + c].innerText = ''; // 移除文字改用背景圖
+            }
         });
     });
 }
@@ -185,7 +193,7 @@ function renderSetupBoard() {
             <button id="orientation-btn">切換方向 (H/V)</button>
         </div>
         <h3>放置你的零食 (點選格子)</h3>
-        <div id="ship-selector">接下來放置：1x3</div>
+        <div id="ship-selector">接下來放置：1x3 (貓抓板)</div>
         <div class="grid" id="setup-grid"></div>
     `;
     
@@ -211,8 +219,14 @@ function renderSetupBoard() {
                     if (canPlace) {
                         for (let i=0; i<currentShipSize; i++) {
                             boardState[r][c+i] = currentShipSize;
-                            grid.children[r * 6 + (c+i)].classList.add('item');
-                            grid.children[r * 6 + (c+i)].innerText = '🍖';
+                            const target = grid.children[r * 6 + (c+i)];
+                            target.classList.add('item-' + currentShipSize);
+                            
+                            // 計算背景偏移 (讓一張長圖橫跨多格)
+                            if (currentShipSize > 1) {
+                                const offset = (i / (currentShipSize - 1)) * 100;
+                                target.style.backgroundPosition = `${offset}% center`;
+                            }
                         }
                         currentShipSize--;
                     }
@@ -222,13 +236,21 @@ function renderSetupBoard() {
                     if (canPlace) {
                         for (let i=0; i<currentShipSize; i++) {
                             boardState[r+i][c] = currentShipSize;
-                            grid.children[(r+i) * 6 + c].classList.add('item');
-                            grid.children[(r+i) * 6 + c].innerText = '🍖';
+                            const target = grid.children[(r+i) * 6 + c];
+                            target.classList.add('item-' + currentShipSize);
+                            target.classList.add('vertical'); // 標記為縱向
+                            
+                            // 縱向時背景偏移是垂直的
+                            if (currentShipSize > 1) {
+                                const offset = (i / (currentShipSize - 1)) * 100;
+                                target.style.backgroundPosition = `center ${offset}%`;
+                            }
                         }
                         currentShipSize--;
                     }
                 }
-                document.getElementById('ship-selector').innerText = currentShipSize > 0 ? `接下來放置：1x${currentShipSize}` : "全部放完了喵！";
+                const shipNames = {3: '貓抓板', 2: '小魚', 1: '毛線鼠'};
+                document.getElementById('ship-selector').innerText = currentShipSize > 0 ? `接下來放置：1x${currentShipSize} (${shipNames[currentShipSize]})` : "全部放完了喵！";
                 if (!canPlace) alert("位置重疊或超出範圍喵！");
             };
             grid.appendChild(cell);
@@ -260,21 +282,44 @@ function renderBattleLayout() {
     const myGrid = document.getElementById('my-territory-grid');
     const radarGrid = document.getElementById('radar-grid');
 
+    // 渲染「我的領土」：顯示自己的船 + 對手的攻擊紀錄
     for (let r = 0; r < 6; r++) {
         for (let c = 0; c < 6; c++) {
             const cell = document.createElement('div');
             cell.className = 'cell';
-            if (myBoard[r][c]) {
-                cell.classList.add('item');
-                cell.innerText = '🍖';
+            
+            const shipId = myBoard[r][c];
+            if (shipId) {
+                cell.classList.add('item-' + shipId);
+                
+                // 找出這艘船的起始位置與方向，以決定 backgroundPosition
+                // 這裡我們簡化處理：判斷相鄰格子是否有相同 ID
+                const isHorizontal = (c > 0 && myBoard[r][c-1] === shipId) || (c < 5 && myBoard[r][c+1] === shipId);
+                const isVertical = (r > 0 && myBoard[r-1][c] === shipId) || (r < 5 && myBoard[r+1][c] === shipId);
+                
+                if (shipId > 1) {
+                    if (isVertical && !isHorizontal) {
+                        cell.classList.add('vertical');
+                        // 尋找它是第幾格
+                        let topIndex = r;
+                        while(topIndex > 0 && myBoard[topIndex-1][c] === shipId) topIndex--;
+                        const offset = ((r - topIndex) / (shipId - 1)) * 100;
+                        cell.style.backgroundPosition = `center ${offset}%`;
+                    } else {
+                        let leftIndex = c;
+                        while(leftIndex > 0 && myBoard[r][leftIndex-1] === shipId) leftIndex--;
+                        const offset = ((c - leftIndex) / (shipId - 1)) * 100;
+                        cell.style.backgroundPosition = `${offset}% center`;
+                    }
+                }
             }
+
             const oppHit = opponentAttacksHistory.find(h => 
                 (h.r === r && h.c === c) || 
                 (h.revealedCoords && h.revealedCoords.some(rc => rc.r === r && rc.c === c))
             );
             if (oppHit) {
                 cell.classList.add(oppHit.hit ? 'hit' : 'miss');
-                cell.innerText = oppHit.hit ? '💥' : '💨';
                 if (oppHit.hit) cell.style.boxShadow = "inset 0 0 10px red";
             }
             myGrid.appendChild(cell);
@@ -287,17 +332,18 @@ function renderBattleLayout() {
             cell.className = 'cell';
             cell.dataset.r = r;
             cell.dataset.c = c;
+            
             const myHit = myAttacksHistory.find(h => 
                 (h.r === r && h.c === c) || 
                 (h.revealedCoords && h.revealedCoords.some(rc => rc.r === r && rc.c === c))
             );
+            
             if (myHit) {
                 cell.classList.add(myHit.hit ? 'hit' : 'miss');
-                cell.innerText = myHit.hit ? '💥' : '💨';
             } else if (currentAttacks.some(a => a.r === r && a.c === c)) {
                 cell.classList.add('marked');
-                cell.innerText = '🎯';
             }
+            
             cell.onclick = () => {
                 const isAlreadyHit = myAttacksHistory.some(h => 
                     (h.r === r && h.c === c) || 
@@ -308,7 +354,6 @@ function renderBattleLayout() {
                 if (currentAttacks.length < attacksAllowed) {
                     currentAttacks.push({ r, c });
                     cell.classList.add('marked');
-                    cell.innerText = '🎯';
                     if (currentAttacks.length === attacksAllowed) {
                         setTimeout(() => {
                             socket.emit('gameAction', { type: 'pounce', moves: currentAttacks });

@@ -86,9 +86,16 @@ button:hover {
 }
 
 .cat-avatar {
-    font-size: 5rem;
-    margin: 1rem 0;
+    width: 120px;
+    height: 120px;
+    margin: 1rem auto;
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
 }
+
+#my-role-icon.avatar-Calico { background-image: url('assets/avatar-calico.png'); }
+#my-role-icon.avatar-Orange { background-image: url('assets/avatar-orange.png'); }
 
 /* Grid Styles */
 .grid {
@@ -123,7 +130,44 @@ button:hover {
     border-radius: 4px;
     user-select: none;
     transition: background 0.2s;
+    background-size: 85%;
+    background-repeat: no-repeat;
+    background-position: center;
 }
+
+.cell.item-1 { 
+    background-image: url('assets/item-1.png'); 
+    background-size: 100% 100%; 
+}
+
+.cell.item-2 { 
+    background-image: url('assets/item-2.png'); 
+    background-size: 200% 100%; /* 橫跨 2 格 */
+}
+
+.cell.item-3 { 
+    background-image: url('assets/item-3.png'); 
+    background-size: 300% 100%; /* 橫跨 3 格 */
+}
+
+/* 處理縱向旋轉時的背景圖適應 */
+.cell.vertical {
+    background-size: 100% auto;
+}
+.cell.vertical.item-2 { background-size: 100% 200%; }
+.cell.vertical.item-3 { background-size: 100% 300%; }
+
+
+.cell.hit { background-image: url('assets/hit-paw.png'); background-color: #fff0f0; border-color: #ffcccc; }
+.cell.miss { background-image: url('assets/miss-dust.png'); background-color: #f8f8f8; }
+.cell.marked { background-image: url('assets/target-aim.png'); }
+
+.cell.marked-bingo {
+    background-image: url('assets/hit-paw.png');
+    background-size: 75%;
+    background-color: #fff9e6;
+}
+
 
 .scoreboard {
     background: #fff;
