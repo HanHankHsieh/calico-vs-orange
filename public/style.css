@@ -235,15 +235,48 @@ button:hover {
     font-weight: bold;
 }
 
-#bingo-score-board {
-    display: flex;
-    justify-content: space-between;
-    padding: 10px;
+#bingo-score-board, #bingo-mischief {
+    max-width: 300px;
+    margin: 5px auto; /* 縮小間距 */
+    padding: 6px 12px;
     background: #fff;
-    border-radius: 10px;
-    margin-bottom: 10px;
+    border-radius: 12px;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: row; /* 強制水平排列 */
+    align-items: center;
+    font-size: 0.9rem;
+    height: 40px; /* 固定高度防止變太高 */
+}
+
+#bingo-score-board {
+    justify-content: space-between;
     border: 2px solid var(--accent-color);
     font-weight: bold;
+}
+
+#bingo-mischief {
+    justify-content: center;
+    gap: 10px;
+    border: 2px solid #ff69b4;
+    color: #d14780;
+}
+
+/* 關鍵修正：覆寫全局 label 的 display: block */
+#bingo-mischief label {
+    display: inline !important; 
+    margin: 0 !important;
+    padding: 0;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+#bingo-mischief input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    margin: 0;
+    cursor: pointer;
+    accent-color: #ff69b4;
 }
 
 .bingo-line {
@@ -303,16 +336,28 @@ button:hover {
     background: #f9f9f9;
 }
 
-.cell.marked {
-    background: #ffe4b5;
+.cell.marked-bingo {
+    background-color: #fff9e6;
+    color: #d2691e; 
+    font-weight: bold;
     position: relative;
 }
 
-.cell.marked::after {
-    content: '🐾';
+.cell.marked-bingo::after {
+    content: "";
     position: absolute;
-    font-size: 1.5rem;
-    opacity: 0.5;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 90%; height: 90%;
+    border: 3px solid rgba(255, 165, 0, 0.4); /* 橘金色半透明圓圈 */
+    border-radius: 50%;
+    background-image: url('assets/hit-paw.png');
+    background-size: 50%;
+    background-repeat: no-repeat;
+    background-position: center bottom 10%; /* 稍微下移肉墊 */
+    background-color: rgba(255, 255, 255, 0.1); 
+    z-index: 2;
+    pointer-events: none;
 }
 
 .cell.hit { background: #ff4d4d; color: white; }

@@ -187,7 +187,7 @@ function updateBingoMarks(marks, allYarnBalls) {
             const index = r * 5 + c;
             if (marked) {
                 cells[index].classList.add('marked-bingo');
-                cells[index].innerText = '';
+                // 不再清除 innerText，讓號碼保留
             }
             Object.values(allYarnBalls).forEach(playerBalls => {
                 if (playerBalls[r][c]) cells[index].classList.add('yarn-blocked');
