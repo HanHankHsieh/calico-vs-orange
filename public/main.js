@@ -1,4 +1,21 @@
-const socket = io();
+const socket = io({
+    transports: ['websocket', 'polling']
+});
+
+socket.on('connect', () => {
+    console.log('Successfully connected to the cat cafe server! ID:', socket.id);
+    systemMsg.innerText = "Connected to the Cat Cafe! Pick a game.";
+});
+
+socket.on('connect_error', (error) => {
+    console.error('Connection Error:', error);
+    systemMsg.innerText = "Meow-dday! Connection failed. Retrying...";
+});
+
+socket.on('disconnect', (reason) => {
+    console.log('Disconnected:', reason);
+    systemMsg.innerText = "The cat ran away (Disconnected).";
+});
 
 // State
 let myRole = null;

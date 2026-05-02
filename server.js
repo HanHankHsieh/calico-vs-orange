@@ -9,6 +9,17 @@ const io = new Server(server);
 
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Debug middleware to catch 404s
+app.use((req, res, next) => {
+    console.log(`🔍 [${new Date().toISOString()}] ${req.method} ${req.url}`);
+    next();
+});
+
+// Health Check for Render
+app.get('/health', (req, res) => {
+    res.status(200).send('Meow! Server is purring.');
+});
+
 // Room and Game State
 const rooms = new Map();
 
@@ -102,6 +113,9 @@ function handleAction(roomName, playerId, data) {
 }
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-    console.log(`The cat cafe is open on port ${PORT}`);
+// Note: Render needs the server to listen on 0.0.0.0
+server.listen(PORT, '0.0.0.0', () => {
+    console.log(`🐾 The cat cafe is open!`);
+    console.log(`📍 URL: http://0.0.0.0:${PORT}`);
+    console.log(`⏰ Started at: ${new Date().toISOString()}`);
 });
